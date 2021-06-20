@@ -1,0 +1,316 @@
+大家好，本講義用來記錄該章節中的額外連結資訊以及課程相關資訊。
+
+
+對於課程上有任何問題，歡迎使用 Telegram 加入下列群組進行討論
+
+
+https://t.me/hiskio_k8s
+
+
+課程中提到的相關連結與指令
+Vagrant 與 VirtualBox 的環境建置
+
+軟體版本與官方網頁
+
+    Vagrant: 2.2.7
+        https://www.vagrantup.com/downloads.html
+        https://releases.hashicorp.com/vagrant/2.2.7/
+    VirtualBox: 6.0.8
+        https://www.virtualbox.org/wiki/Download_Old_Builds_6_0
+    操作
+        Git檔案下載 (選一個你習慣的方式下載)
+            git clone https://github.com/hwchiu/hiskio-course.git
+            https://github.com/hwchiu/hiskio-course/archive/master.zip
+                記得解壓縮
+        啟動 Vagrant
+            進入到上述抓好的資料夾內 (hiskio-course/vagrant)
+            執行 vagrant up 來創造環境
+        進入到 Vagrant 創造的虛擬機器中
+            vagrant ssh
+        砍掉已經創建的 Virtual Machine
+            vagrant destroy
+        觀看相關資訊
+            vagrant global-status
+
+使用 Kubeadm 創建第一個 kubernetes 叢集 - 概念篇
+
+安裝 Kubeadm Kubectl Kubelet (1.17.0)
+
+export KUBE_VERSION="1.17.0"
+sudo apt-get update && sudo apt-get install -y apt-transport-https curl
+curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+cat <<EOF | sudo tee /etc/apt/sources.list.d/kubernetes.list
+deb https://apt.kubernetes.io/ kubernetes-xenial main
+EOF
+sudo apt-get update
+sudo apt-get install -y kubeadm=${KUBE_VERSION}-00 kubelet=${KUBE_VERSION}-00 kubectl=${KUBE_VERSION}-00
+
+
+初始化 Kubernetes Cluster
+
+sudo kubeadm init --pod-network-cidr=10.244.0.0/16
+
+
+複製相關設定檔案
+
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+
+安裝 CNI (1.18後已經將 Flannel 從官方移除，如果作為測試使用，我認為還是可以繼續使用)
+
+- 移除原因
+
+- 1.18推薦安裝的解決方案們
+
+
+繼續使用 Flannel
+
+kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/2140ac876ef134e0ed5af15c65e414cf26827915/Documentation/kube-flannel.yml
+
+額外補充連結:
+
+    static pod:
+        https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/
+    kubeadm:
+        https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/
+
+
+Kubectl 的基本概念與介紹
+
+幫 Bash 設定 kubectl 自動補齊
+
+source <(kubectl completion bash)
+
+
+列出所有 kube-system 這個 namespaces 內的所有 Pods(Container 先這樣想)
+
+kubectl -n kube-system get pods
+
+
+列出所有 kube-system 這個 namespaces 內的所有 Pods(Container 先這樣想)，但是加上更多欄位
+
+kubectl -n kube-system get pods -o=wide
+
+
+透過 Yaml/Json/JsonPath 的方式來觀察某個資源的描述檔案
+
+kubectl -n kube-system get pods kube-apiserver-k8s-dev -o yaml
+kubectl -n kube-system get pods kube-apiserver-k8s-dev -o json
+kubectl -n kube-system get pods -o=jsonpath='{.items[*].metadata.name}'
+
+
+
+透過 Describe 來觀察特定資源的諸多面向
+
+kubectl -n kube-system describe pods kube-apiserver-k8s-dev
+
+
+觀看 Cluster 內的資訊
+
+kubectl version
+kubectl cluster-info
+kubectl top node
+kubectl top pod
+kubectl api-versions
+
+
+不停的觀察 Pod  的狀態變化
+
+kubectl -n kube-system get pods -w
+
+
+觀察特定 Pod 的日誌輸出，透過 -f 使用跟隨者模式來開啟串流不停地更新日誌
+
+kubectl -n kube-system logs kube-apiserver-k8s-dev
+kubectl -n kube-system logs -f kube-apiserver-k8s-dev
+
+
+透過 kubectl cp 的方式於 Host 與 Container 中傳送檔案
+
+kubectl -n kube-system cp ~/hiskio-course/README.md kube-apiserver-k8s-dev:/tmp/backup.md
+kubectl -n kube-system cp  kube-apiserver-k8s-dev:/tmp/backup.md ~/hiskio-course/new.md
+
+
+要求 Container(Pod) 執行特定指令, 加上 -it 就會變成互動模式，可以進入到 shell 中
+
+kubectl -n kube-system exec kube-apiserver-k8s-dev id
+kubectl -n kube-system exec -it kube-apiserver-k8s-dev sh
+
+
+把本機端的封包轉發到 Kubernetes Container 中
+
+1. 請把 coredns-6955765f44-hxhzn 替換成你環境中的名稱
+
+sudo kubectl -n kube-system port-forward pod/coredns-6955765f44-hxhzn 53:53
+
+2. 各種 script 互相整合，找出第一個 coredns 的名稱
+
+sudo kubectl -n kube-system port-forward pod/`kubectl -n kube-system get pods -o jsonpath="{.items[*].metadata.name}" | tr " " "\n" | grep coredns | head -n1` 53:53
+
+
+
+額外課程連結:
+
+    kubectl 介紹
+        https://kubernetes.io/docs/setup/#learning-environment
+
+
+基於 Minikube 的 Kubernetes 部署方式
+
+安裝 minikube 指令
+
+curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 \
+  && chmod +x minikube
+  
+
+
+透過 minikube 安裝 kubernetes cluster
+
+新版的 minikube 如果使用到的是 kubernetes 1.18.0 以上，需要先安裝 conntrack 這個套件
+
+sudo apt-get install conntrack
+sudo ./minikube start --vm-driver=none 
+
+
+設定 kubectl 使用的 config
+
+sudo chown -R $USER $HOME/.kube $HOME/.minikube  
+
+
+安裝 kubectl 指令(也可以使用 minikube kubectl)
+
+sudo apt-get update && sudo apt-get install -y apt-transport-https curl
+curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+cat <<EOF | sudo tee /etc/apt/sources.list.d/kubernetes.list
+deb https://apt.kubernetes.io/ kubernetes-xenial main
+EOF
+sudo apt-get update
+sudo apt-get install -y kubectl        
+
+
+透過 kubectl port-forward 把封包轉到 container 內
+
+kubectl port-forward --address 172.17.8.111 -n kubernetes-dashboard service/kubernetes-dashboard 8888:80
+
+
+額外課程連結:
+
+    minikube 介紹
+        https://kubernetes.io/docs/tasks/tools/install-minikube/
+
+
+
+Kubernetes in Docker (kind) 的奇妙組合
+
+下載並且安裝 Kind 的執行檔 (v0.7.0)
+
+curl -Lo ./kind "https://github.com/kubernetes-sigs/kind/releases/download/v0.11.1/kind-$(uname)-amd64"
+chmod +x ./kind
+
+
+安裝 kubectl 指令
+
+sudo apt-get update && sudo apt-get install -y apt-transport-https curl
+curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+cat <<EOF | sudo tee /etc/apt/sources.list.d/kubernetes.list
+deb https://apt.kubernetes.io/ kubernetes-xenial main
+EOF
+sudo apt-get update
+sudo apt-get install -y kubectl        
+
+
+透過 Kind 啟動 Kubernetes Cluster (注意，下列兩個用法都可以，如果有用 sudo 的話，等等還要重新修正設定檔的權限)
+
+./kind create cluster --config hiskio-course/vagrant/kind.yaml (只要使用者有 docker 權限，就不需要 sudo)
+
+or
+sudo ./kind create cluster --config hiskio-course/vagrant/kind.yaml
+
+
+如果上述是透過 sudo 的方式設定的話，需要重新修正權限
+
+sudo chown -R $USER $HOME/.kube
+
+
+Docker 節點內的相關使用指令
+
+docker exec -it kind-control-plane docker
+docker exec -it kind-control-plane bash
+
+docker exec kind-control-plane crictl ps
+
+
+Docker 節點內的一些檔案路徑
+
+CNI:
+/etc/cni/net.d
+
+Static Pod
+/etc/kubernetes/manifacts/
+
+
+額外課程連結
+
+    KIND
+         https://kind.sigs.k8s.io/docs/user/quick-start/
+
+使用 Rancher 優雅的管理你的叢集 
+
+安裝 Rancher Controller
+
+docker run -d --restart=unless-stopped -p 80:80 -p 443:443 rancher/rancher:v2.3.5
+
+接下來請透過瀏覽器的方式去存取該服務
+
+https://172.17.8.111
+
+
+額外連結介紹:
+
+    Rancher
+        https://rancher.com/
+        https://github.com/rancher/rancher/issues/22996
+
+
+Kubeconfig 的概念與用法
+
+如何選擇不同的 KUBECONFIG, 透過環境變數或是執行的參數
+
+KUBECONFIG=~/.kube/config kubectl config get-contexts
+kubectl --kubeconfig=~/.kube/config config get-contexts
+
+
+
+kubectl config 的各種操作
+
+kubectl config get-contexts
+kubectl config use-context $NAME
+
+
+如何合併多個 KUBECONFIG
+
+1. 先備份
+
+2. 合併後直接取代預設的 $HOME/.kube/config
+
+cp ~/.kube/config ~/.kube/config_bk
+KUBECONFIG=rancher:~/.kube/config kubectl config view --flatten > ~/.kube/conifg
+kubectl config get-contexts
+
+
+額外連結介紹
+
+    kubeconfig 介紹
+        https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/
+
+
+部署概念總結
+
+額外連結介紹:
+
+    Learning/Production environment
+        https://kubernetes.io/docs/setup/#learning-environment
+
+
